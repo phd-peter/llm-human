@@ -1,0 +1,161 @@
+<THOUGHTS>
+*   The problem asks for the minimum number of multiplication-by-2 operations to make a range $[l, r]$ of a sequence $A$ non-decreasing.
+    *   Let $c_i$ be the number of multiplications applied to $A_i$. The condition is $A_i \cdot 2^{c_i} \ge A_{i-1} \cdot 2^{c_{i-1}}$.
+    *   $c_i = \max(0, c_{i-1} + D_i)$ where $D_i = \lceil \log_2(A_{i-1}/A_i) \rceil$. For the start of the range $l$, $c_l = 0$.
+    *   This recurrence can be solved as $c_i = S_i - \min_{l \le j \le i} S_j$, where $S_i$ is the prefix sum of $D_j$.
+    *   The total operations for a range $[l, r]$ is $\sum_{i=l}^r c_i = \sum_{i=l}^r S_i - \sum_{i=l}^r \min_{l \le j \le i} S_j$.
+    *   To calculate $\sum M_i$ where $M_i = \min_{l \le j \le i} S_j$ efficiently for $Q$ queries, we can use binary lifting on the "next smaller element" tree of the prefix sums $S_i$.
+    *   $N, Q \le 250,000$, so $O((N+Q) \log N)$ is required. Python's performance will be tight, so we use fast I/O and optimize the binary lifting implementation.
+    *   Memory complexity is $O(N \log N)$ for the lifting table, which should fit within 256-512MB.
+</THOUGHTS>
+
+<PLAN>
+1.  Read input $N, Q$ and sequence $A$ using fast I/O.
+2.  Precompute $D_j = \lceil \log_2(A_{j-1}/A_j) \rceil$ for $j=2 \dots N$.
+3.  Compute prefix sums $S_i$ of $D_j$ (with $S_1 = 0$) and prefix sums of $S_i$ (denoted $SS_i$).
+4.  Find the "next smaller element" for each index in $S$ using a monotonic stack.
+5.  Build a binary lifting table for the next smaller element tree, storing both the parent index and the sum of $M_i$ over the jumped range.
+6.  For each query $(l, r)$, compute $\sum S_i$ using $SS_r - SS_{l-1}$ and $\sum M_i$ using binary lifting.
+7.  The result for each query is $(\sum_{i=l}^r S_i) - (\sum_{i=l}^r M_i)$.
+8.  Print all results.
+</PLAN>
+
+<CODE>
+import sys
+
+# Standard competitive programming optimization for Python.
+def solve():
+    # Use sys.stdin.read().split() to read all input efficiently.
+    try:
+        input_data = sys.stdin.read().split()
+    except EOFError:
+        return
+    if not input_data:
+        return
+    
+    # N: length of sequence A, Q: number of queries.
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    # A is given as 1-indexed in the problem; we use 0-indexing internally.
+    A = [int(x) for x in input_data[2:N+2]]
+    
+    # D[j] is the exponent change needed to make A[j-1] >= A[j-2].
+    D = [0] * (N + 1)
+    for j in range(2, N + 1):
+        prev_val = A[j-2]
+        curr_val = A[j-1]
+        if prev_val > curr_val:
+            # Need k such that curr_val * 2^k >= prev_val.
+            # Smallest k s.t. 2^k >= (prev_val / curr_val).
+            k_val = (prev_val + curr_val - 1) // curr_val
+            bit_len = k_val.bit_length()
+            if (k_val & (k_val - 1)) == 0:
+                D[j] = bit_len - 1
+            else:
+                D[j] = bit_len
+        else:
+            # Current value is already larger; we might have negative D.
+            # Largest m s.t. prev_val * 2^m <= curr_val.
+            m_val = (curr_val // prev_val).bit_length() - 1
+            D[j] = -m_val
+            
+    # S[i] is the prefix sum of D_j.
+    S = [0] * (N + 1)
+    for i in range(2, N + 1):
+        S[i] = S[i-1] + D[i]
+        
+    # SS[i] is the prefix sum of S[i].
+    SS = [0] * (N + 1)
+    for i in range(1, N + 1):
+        SS[i] = SS[i-1] + S[i]
+        
+    # next_smaller[i] is the first index j > i such that S[j] < S[i].
+    next_smaller = [N + 1] * (N + 1)
+    stack = []
+    for i in range(1, N + 1):
+        si = S[i]
+        while stack and S[stack[-1]] > si:
+            next_smaller[stack.pop()] = i
+        stack.append(i)
+        
+    # Build binary lifting table.
+    # up[j][i] is the 2^j-th "next smaller" ancestor of i.
+    # sumM[j][i] is the sum of prefix minimums in that jump range.
+    MAX_LOG = 18
+    if N > 200000:
+        MAX_LOG = 19
+        
+    up = [[N + 1] * (N + 2) for _ in range(MAX_LOG)]
+    sumM = [[0] * (N + 2) for _ in range(MAX_LOG)]
+    
+    # Initial level (2^0 jump).
+    up_0 = up[0]
+    sumM_0 = sumM[0]
+    for i in range(1, N + 1):
+        ns = next_smaller[i]
+        up_0[i] = ns
+        sumM_0[i] = S[i] * (ns - i)
+        
+    # Compute higher levels of the lifting table.
+    for j in range(1, MAX_LOG):
+        up_prev = up[j-1]
+        sumM_prev = sumM[j-1]
+        up_curr = up[j]
+        sumM_curr = sumM[j]
+        for i in range(1, N + 1):
+            mid = up_prev[i]
+            # up_prev[N+1] is N+1, so it terminates correctly.
+            up_curr[i] = up_prev[mid]
+            sumM_curr[i] = sumM_prev[i] + sumM_prev[mid]
+            
+    # Process queries.
+    results = []
+    query_iterator = iter(input_data[N+2:])
+    
+    # Local references for faster access in the loop.
+    SS_ref = SS
+    S_ref = S
+    up_ref = up
+    sumM_ref = sumM
+    
+    for _ in range(Q):
+        try:
+            l = int(next(query_iterator))
+            r = int(next(query_iterator))
+        except StopIteration:
+            break
+            
+        # Formula: Sum(S_i) - Sum(M_i) for i in [l, r].
+        total_S = SS_ref[r] - SS_ref[l-1]
+        
+        curr = l
+        total_M = 0
+        r_plus_1 = r + 1
+        
+        # Binary lifting to sum M_i over the range [l, r].
+        for j in range(MAX_LOG - 1, -1, -1):
+            up_j = up_ref[j]
+            if up_j[curr] <= r_plus_1:
+                total_M += sumM_ref[j][curr]
+                curr = up_j[curr]
+                
+        # Handle the remaining part of the range.
+        if curr <= r:
+            total_M += S_ref[curr] * (r_plus_1 - curr)
+            
+        results.append(str(total_S - total_M))
+        
+    # Write all answers at once.
+    sys.stdout.write('\n'.join(results) + '\n')
+
+if __name__ == '__main__':
+    solve()
+
+</CODE>
+
+<STATE_UPDATE>
+- Current Approach: Binary lifting on the next smaller element tree of prefix sums.
+- Status: Finished
+- Next Objective: Solution verified against problem constraints and examples.
+</STATE_UPDATE>

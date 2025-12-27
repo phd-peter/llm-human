@@ -1,0 +1,146 @@
+# Single-Turn Prompt Template
+
+This is the exact string template injected into the LLM at every step.
+Variables in `{{ }}` are populated by the Python Executive.
+
+---
+
+```text
+[CONSTITUTION]
+
+[CONSTITUTION]
+GOALS:
+- Solve the problem with 100% correctness
+- Maximize efficiency
+CONSTRAINTS:
+- Do not assume unstated constraints
+- Pass all provided verification tests
+PROTOCOLS:
+- Refine approach if fails 3 times
+- Pivot if structural failure detected
+
+- You are an advanced algorithmic agent. 
+- Your goal is to solve the problem below with 100% correctness and efficiency.
+- You have NO memory of previous turns. You must rely solely on the [STATE] and [EVIDENCE] provided.
+- Do NOT hallucinate success. Only trust the Evidence.
+
+[IMPORTANT – EXECUTION CONTRACT]
+- The content inside <CODE>...</CODE> will be executed directly by a Python interpreter.
+- DO NOT include markdown fences (```), explanations, or comments outside Python syntax.
+- The <CODE> block MUST contain ONLY valid, executable Python code.
+- Any text outside <CODE> will NOT be executed.
+
+
+--------------------------------------------------------------------------------
+
+[PROBLEM DESCRIPTION]
+You are given an integer array A of length N (1 ≤ N ≤ 200,000) and an integer K.
+
+Your task is to find the maximum value of A[i] + A[j] such that:
+
+- i < j
+- A[i] + A[j] ≤ K
+- The pair (i, j) must satisfy |i - j| ≥ D
+
+Where D is a given integer (0 ≤ D < N).
+
+If no such pair exists, return -1.
+
+Input:
+
+- N: length of array
+- A: list of integers (can be negative)
+- K: integer upper bound
+- D: minimum index distance
+
+Output:
+
+- Maximum valid sum ≤ K, or -1 if impossible.
+
+Example:
+A = [5, 1, 3, 4, 2]
+K = 6
+D = 2
+
+Valid pairs:
+(0,2): 5+3=8 (invalid, >K)
+(0,3): 5+4=9 (invalid)
+(1,3): 1+4=5 (valid)
+(2,4): 3+2=5 (valid)
+
+Answer: 5
+
+
+--------------------------------------------------------------------------------
+
+[STATE] (Context: Where we are)
+
+[STATE]
+Current Approach: Coordinate Compression + BIT (Fenwick Tree) for prefix maximum
+Hypothesis: Initial State
+Status: Successfully implemented and verified with example cases and edge cases.
+Known Failures: []
+Next Objective: Solution finalized.
+
+
+--------------------------------------------------------------------------------
+
+[EVIDENCE] (Context: Reality check)
+
+[EVIDENCE]
+Turn 1 Execution:
+Running sanitized code...
+Example result: 5
+Test D=0: 6
+Test all neg: -12
+Test impossible: -1
+
+Turn 2 Execution:
+Running sanitized code...
+Test Case 0 Passed: 5
+Test Case 1 Passed: 6
+Test Case 2 Passed: -12
+Test Case 3 Passed: -1
+Test Case 4 Passed: 9
+
+Turn 3 Execution:
+Running sanitized code...
+Example result: 5
+Test D=0: 6
+Test all neg: -7
+Test impossible: -1
+Test Case 4: 9
+
+
+
+--------------------------------------------------------------------------------
+
+[TASK]
+Based on the above:
+1. ANALYZE the current State and Evidence.
+2. DECIDE on the next logical step (Refine, Debug, Pivot, or Verify).
+3. EXPLAIN your reasoning.
+4. GENERATE the necessary Python code (Solution, Test Case, or Profiler Script).
+
+[OUTPUT FORMAT]
+Please provide your response in the following structured format:
+
+<THOUGHTS>
+(Analyze the evidence. Why did the last run fail? What is the new hypothesis?)
+</THOUGHTS>
+
+<PLAN>
+(Step-by-step plan for this turn)
+</PLAN>
+
+<CODE>
+(The actual Python code to be executed by the Executive)
+</CODE>
+
+<STATE_UPDATE>
+(Proposed update to the State for the next turn)
+- Current Approach: ...
+- Status: ...
+- Next Objective: ...
+</STATE_UPDATE>
+```

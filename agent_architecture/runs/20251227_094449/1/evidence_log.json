@@ -1,0 +1,5 @@
+{
+  "logs": [
+    "Turn 1 Execution:\nRunning sanitized code...\nExample result: 5\nTest D=0: 6\nTest all neg: -12\nTest impossible: -1\n"
+  ]
+}

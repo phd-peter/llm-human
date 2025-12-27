@@ -1,0 +1,130 @@
+<THOUGHTS>
+*   The problem asks for the minimum number of multiplications by 2 to make a subsegment non-decreasing.
+    *   Let $k_i$ be the number of multiplications for $A_i$. The condition $A_i \cdot 2^{k_i} \ge A_{i-1} \cdot 2^{k_{i-1}}$ gives $k_i = \max(0, k_{i-1} + d_i)$, where $d_i = \lceil \log_2(A_{i-1}/A_i) \rceil$.
+    *   For a query $(l, r)$, the total operations $f(A_l, \dots, A_r) = \sum_{i=l}^r k_i$, where $k_l = 0$.
+    *   This recurrence is equivalent to $k_i = P_i - \min_{l \le j \le i} P_j$, where $P_i$ is the prefix sum of $d_j$.
+    *   The sum $\sum k_i = \sum P_i - \sum \min P_j$ can be efficiently computed.
+    *   $\sum P_i$ is handled by prefix sums.
+    *   $\sum \min P_j$ is computed using a next-smaller-value tree, binary lifting, and precomputed path sums $G(i)$.
+    *   $N, Q \le 250,000$ requires an $O((N+Q) \log N)$ approach, which this is.
+
+</THOUGHTS>
+
+<PLAN>
+1.  Read $N, Q$, and array $A$.
+2.  Precompute $d_i = \lceil \log_2(A_{i-1}/A_i) \rceil$ for $i=2, \dots, N$.
+3.  Compute prefix sums $P_i = \sum_{j=2}^i d_j$ and $PP_i = \sum_{j=1}^i P_j$.
+4.  Find $ns[i]$, the first index $j > i$ such that $P_j < P_i$, using a monotonic stack.
+5.  Define a tree where $ns[i]$ is the parent of $i$. Compute $G(i)$, the sum of prefix minimums from $i$ to $N$.
+6.  Build a binary lifting table for the next-smaller-value tree.
+7.  For each query $(l, r)$, find the largest ancestor $u$ of $l$ such that $u \le r$, and compute the sum of prefix minimums using $G(l), G(u), P_u$, and $r$.
+8.  The result is the difference between the prefix sum of $P$ and the sum of prefix minimums.
+9.  Output all results.
+</PLAN>
+
+<CODE>
+import sys
+
+# Standard competitive programming fast I/O
+def solve():
+    # Increase recursion limit just in case, though we use iterative approach
+    sys.setrecursionlimit(300000)
+    
+    # Read all data at once
+    try:
+        raw_data = sys.stdin.read().split()
+    except EOFError:
+        return
+    if not raw_data:
+        return
+    
+    N = int(raw_data[0])
+    Q = int(raw_data[1])
+    A = list(map(int, raw_data[2:N+2]))
+    queries = raw_data[N+2:]
+
+    # Step 1: Precompute d_i values
+    # d_i = smallest integer such that A[i] * 2^d_i >= A[i-1]
+    def get_d(prev, curr):
+        if prev <= curr:
+            # curr * 2^d >= prev, where d <= 0.
+            # k = -d is largest s.t. curr // 2^k >= prev.
+            # k = floor(log2(curr/prev))
+            k = (curr // prev).bit_length() - 1
+            if (curr >> k) < prev:
+                k -= 1
+            return -k
+        else:
+            # curr * 2^d >= prev, where d > 0.
+            # d = ceil(log2(prev/curr))
+            # val = ceil(prev/curr)
+            val = (prev + curr - 1) // curr
+            # d is smallest s.t. 2^d >= val
+            d = (val - 1).bit_length()
+            return d
+
+    # Step 2: Prefix sums of d_i
+    P = [0] * (N + 1) # P[1] = 0, P[i] = d_2 + ... + d_i
+    for i in range(2, N + 1):
+        P[i] = P[i-1] + get_d(A[i-2], A[i-1])
+        
+    PP = [0] * (N + 1) # PP[i] = P[1] + ... + P[i]
+    for i in range(1, N + 1):
+        PP[i] = PP[i-1] + P[i]
+        
+    # Step 3: Next smaller values
+    ns = [N + 1] * (N + 2)
+    stack = []
+    for i in range(1, N + 1):
+        while stack and P[stack[-1]] > P[i]:
+            ns[stack.pop()] = i
+        stack.append(i)
+        
+    # Step 4: G[i] = sum of prefix minimums from i to N
+    G = [0] * (N + 2)
+    for i in range(N, 0, -1):
+        nxt = ns[i]
+        G[i] = P[i] * (nxt - i) + G[nxt]
+        
+    # Step 5: Binary lifting for ns tree
+    LOG = 18
+    up = [[N + 1] * (N + 2) for _ in range(LOG)]
+    for i in range(1, N + 1):
+        up[0][i] = ns[i]
+    for j in range(1, LOG):
+        prev_up = up[j-1]
+        curr_up = up[j]
+        for i in range(1, N + 2):
+            curr_up[i] = prev_up[prev_up[i]]
+            
+    # Step 6: Process queries
+    results = []
+    for i in range(0, 2 * Q, 2):
+        l = int(queries[i])
+        r = int(queries[i+1])
+        
+        # Find the largest ancestor u of l such that u <= r
+        u = l
+        for j in range(LOG - 1, -1, -1):
+            if up[j][u] <= r:
+                u = up[j][u]
+                
+        # Total sum of k_i in [l, r]
+        # SumP = P[l] + ... + P[r]
+        # SumM = M[l,l] + ... + M[l,r] where M[l,i] = min(P[l...i])
+        sumP = PP[r] - PP[l-1]
+        sumM = (G[l] - G[u]) + P[u] * (r - u + 1)
+        
+        results.append(str(sumP - sumM))
+        
+    sys.stdout.write('\n'.join(results) + '\n')
+
+if __name__ == "__main__":
+    solve()
+</CODE>
+
+<STATE_UPDATE>
+- Current Approach: Next-smaller-value tree with binary lifting
+- Status: Finished
+- Next Objective: None
+</STATE_UPDATE>

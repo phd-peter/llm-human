@@ -1,0 +1,465 @@
+# Single-Turn Prompt Template
+
+This is the exact string template injected into the LLM at every step.
+Variables in `{{ }}` are populated by the Python Executive.
+
+---
+
+```text
+[CONSTITUTION]
+
+[CONSTITUTION]
+GOALS:
+- Solve the problem with 100% correctness
+- Maximize efficiency
+CONSTRAINTS:
+- Do not assume unstated constraints
+- Pass all provided verification tests
+PROTOCOLS:
+- Refine approach if fails 3 times
+- Pivot if structural failure detected
+
+- You are an advanced algorithmic agent. 
+- Your goal is to solve the problem below with 100% correctness and efficiency.
+- You have NO memory of previous turns. You must rely solely on the [STATE] and [EVIDENCE] provided.
+- Do NOT hallucinate success. Only trust the Evidence.
+
+[IMPORTANT – EXECUTION CONTRACT]
+- The content inside <CODE>...</CODE> will be executed directly by a Python interpreter.
+- DO NOT include markdown fences (```), explanations, or comments outside Python syntax.
+- The <CODE> block MUST contain ONLY valid, executable Python code.
+- Any text outside <CODE> will NOT be executed.
+
+
+--------------------------------------------------------------------------------
+
+[PROBLEM DESCRIPTION]
+길이
+M
+M인 양의 정수열
+X
+1
+,
+…
+,
+X
+M
+X
+1
+​
+ ,…,X
+M
+​
+ 이 주어질 때, 이 수열을 오름차순으로 만드는 것을 생각해 보자. 수열
+X
+1
+,
+…
+,
+X
+M
+X
+1
+​
+ ,…,X
+M
+​
+ 이 오름차순이라는 것은, 각
+i
+i (
+1
+≤
+i
+≤
+M
+−
+1
+1≤i≤M−1)에 대해
+X
+i
+≤
+X
+i
++
+1
+X
+i
+​
+ ≤X
+i+1
+​
+ 이라는 것이다.
+
+수열
+X
+X를 오름차순으로 만들기 위해, 수열
+X
+X에 다음 연산을 몇 번이든 반복해서 적용할 수 있다.
+
+어떤
+i
+i (
+1
+≤
+i
+≤
+M
+1≤i≤M)에 대해
+X
+i
+X
+i
+​
+ 에 2를 곱한다.
+연산을 최소 횟수로 적용해서
+X
+X를 오름차순으로 만들 때, 이 최소 횟수를
+f
+(
+X
+)
+f(X)라고 하자.
+
+길이
+N
+N의 양의 정수열
+A
+1
+,
+…
+,
+A
+N
+A
+1
+​
+ ,…,A
+N
+​
+ 과 쿼리
+Q
+Q개가 주어진다. 각 쿼리에는
+1
+≤
+l
+≤
+r
+≤
+N
+1≤l≤r≤N을 만족하는 정수
+l
+l과
+r
+r이 주어진다. 해당 쿼리에 대한 답은
+f
+(
+A
+l
+,
+…
+,
+A
+r
+)
+f(A
+l
+​
+ ,…,A
+r
+​
+ )이다.
+A
+l
+,
+…
+,
+A
+r
+A
+l
+​
+ ,…,A
+r
+​
+ 은
+A
+A의
+l
+l번째 원소부터
+r
+r번째 원소까지로 이루어진 부분 수열을 의미한다.
+
+각 쿼리에 대한 답을 구하여라.
+
+제약 조건
+주어지는 모든 수는 정수이다.
+1
+≤
+N
+≤
+250
+
+000
+1≤N≤250000
+1
+≤
+Q
+≤
+250
+
+000
+1≤Q≤250000
+1
+≤
+A
+i
+≤
+1
+0
+9
+1≤A
+i
+​
+ ≤10
+9
+  (
+1
+≤
+i
+≤
+N
+1≤i≤N)
+모든 쿼리에 대해
+1
+≤
+l
+≤
+r
+≤
+N
+1≤l≤r≤N
+부분문제
+(5점)
+N
+≤
+10
+
+000
+N≤10000,
+Q
+≤
+10
+
+000
+Q≤10000
+(7점)
+N
+≤
+10
+
+000
+N≤10000
+(28점) 모든 쿼리에 대해
+r
+=
+
+N
+r=N
+(10점)
+A
+i
+≥
+A
+i
++
+1
+A
+i
+​
+ ≥A
+i+1
+​
+  (
+1
+≤
+i
+≤
+N
+−
+1
+1≤i≤N−1)
+(5점)
+A
+i
+≤
+2
+A
+i
+​
+ ≤2 (
+1
+≤
+i
+≤
+N
+1≤i≤N)
+(10점)
+A
+i
+=
+
+2
+k
+i
+A
+i
+​
+ =2
+k
+i
+​
+
+ 를 만족하는 0 이상의 정수
+k
+i
+k
+i
+​
+ 가 존재 (
+1
+≤
+i
+≤
+N
+1≤i≤N)
+(35점) 추가 제약 조건 없음
+입력 형식
+첫 번째 줄에
+N
+N과
+Q
+Q가 공백으로 구분되어 주어진다.
+
+두 번째 줄에
+A
+1
+,
+…
+,
+A
+N
+A
+1
+​
+ ,…,A
+N
+​
+ 이 공백으로 구분되어 주어진다.
+
+이후
+Q
+Q개의 줄에 걸쳐 쿼리들이 주어진다. 각 쿼리는
+l
+l과
+r
+r이 공백으로 구분되어 주어진다.
+
+출력 형식
+Q
+Q개의 줄에 걸쳐 쿼리들의 답을 입력 순서대로 출력한다.
+
+예제
+예제 1
+입력
+10 5
+5 2 7 3 2 9 6 3 3 5
+3 9
+1 10
+1 8
+2 4
+8 9
+출력
+14
+27
+19
+2
+0
+예제 2
+입력
+10 5
+2 8 4 9 10 8 5 3 7 7
+2 8
+1 10
+3 3
+1 3
+8 10
+출력
+7
+11
+0
+1
+0
+
+
+--------------------------------------------------------------------------------
+
+[STATE] (Context: Where we are)
+
+[STATE]
+Current Approach: None
+Hypothesis: Initial State
+Status: Debugging
+Known Failures: ['Turn 1 Execution Error', 'Turn 2 Execution Error']
+Next Objective: Analyze problem and propose initial plan
+
+
+--------------------------------------------------------------------------------
+
+[EVIDENCE] (Context: Reality check)
+
+[EVIDENCE]
+Turn 1 Execution:
+Running sanitized code...
+Execution timed out!
+
+Turn 2 Execution:
+Running sanitized code...
+Execution timed out!
+
+
+
+--------------------------------------------------------------------------------
+
+[TASK]
+Based on the above:
+1. ANALYZE the current State and Evidence.
+2. DECIDE on the next logical step (Refine, Debug, Pivot, or Verify).
+3. EXPLAIN your reasoning.
+4. GENERATE the necessary Python code (Solution, Test Case, or Profiler Script).
+
+[OUTPUT FORMAT]
+Please provide your response in the following structured format:
+
+<THOUGHTS>
+(Analyze the evidence. Why did the last run fail? What is the new hypothesis?)
+</THOUGHTS>
+
+<PLAN>
+(Step-by-step plan for this turn)
+</PLAN>
+
+<CODE>
+(The actual Python code to be executed by the Executive)
+</CODE>
+
+<STATE_UPDATE>
+(Proposed update to the State for the next turn)
+- Current Approach: ...
+- Status: (MUST be one of: "Active", "Debugging", "Finished")
+- Next Objective: ...
+</STATE_UPDATE>
+
+[TERMINATION RULES]
+- If you have fully verified the solution and it is correct, set Status to "Finished".
+- If you are stuck or need to change approach, set Status to "Debugging" or "Active".
+```

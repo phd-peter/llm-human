@@ -1,0 +1,149 @@
+<THOUGHTS>
+*   The problem asks for the minimum number of multiplications by 2 to make a given subarray $A_l, \dots, A_r$ non-decreasing.
+    *   Let $c_i$ be the number of multiplications on $A_i$. The greedy strategy for a range $[l, r]$ is:
+        $c_l = 0$
+        $c_i = \max(0, c_{i-1} + h_i)$ for $i > l$, where $h_i = \lceil \log_2(A_{i-1}/A_i) \rceil$.
+    *   This recurrence can be rewritten using prefix sums of $h_i$. Let $S_i = \sum_{j=1}^i h_j$ (with $h_1=0$).
+        Then $c_k = S_k - \min_{l \le j \le k} S_j$ for $k \in [l, r]$.
+    *   The total number of operations $f(l, r)$ is $\sum_{k=l}^r (S_k - \min_{l \le j \le k} S_j) = (\sum_{k=l}^r S_k) - (\sum_{k=l}^r \min_{l \le j \le k} S_j)$.
+    *   We can calculate $\sum_{k=l}^r S_k$ using prefix sums.
+    *   To calculate $\sum_{k=l}^r \min_{l \le j \le k} S_j$, we use the fact that $\min_{l \le j \le k} S_j$ is a step function.
+    *   We can precompute the first $j > i$ such that $S_j < S_i$ (let's call it $next\_smaller[i]$) using a stack.
+    *   The step function can then be traversed using binary lifting (doubling).
+    *   Complexity: $O((N+Q) \log N)$ time and $O(N \log N)$ space. This should pass within the time and memory limits for $N, Q = 2.5 \times 10^5$.
+</THOUGHTS>
+
+<PLAN>
+1.  Read $N, Q$ and the sequence $A$.
+2.  Calculate $h_i = \lceil \log_2(A_{i-1}/A_i) \rceil$ for $i=2, \dots, N$ and $h_1 = 0$.
+3.  Compute prefix sums $S_i$ of $h_i$ and prefix sums $PS_i$ of $S_i$.
+4.  Compute $next\_smaller[i]$, the first $j > i$ such that $S_j < S_i$, using a stack.
+5.  Build binary lifting tables `up[K][N+2]` and `sum_up[K][N+2]`:
+    *   `up[0][i] = next_smaller[i]`
+    *   `sum_up[0][i] = (next_smaller[i] - i) * S_i`
+    *   `up[k][i] = up[k-1][up[k-1][i]]`
+    *   `sum_up[k][i] = sum_up[k-1][i] + sum_up[k-1][up[k-1][i]]`
+6.  For each query $(l, r)$:
+    *   Calculate $ans = PS_r - PS_{l-1} - \text{sum of step function}$.
+    *   The sum of the step function is found by jumping through the `up` and `sum_up` tables as long as the jumps stay within $[l, r]$.
+    *   Handle the final part of the range.
+7.  Output all results.
+</PLAN>
+
+<CODE>
+import sys
+import array
+
+def solve():
+    # Use fast I/O
+    data = sys.stdin.read().split()
+    if not data:
+        return
+    
+    N = int(data[0])
+    Q = int(data[1])
+    # Sequence A
+    A = [int(data[i]) for i in range(2, N + 2)]
+    
+    # Calculate h_i: smallest h s.t. 2^h * A[i] >= A[i-1]
+    # h_i = ceil(log2(A[i-1]/A[i]))
+    h = [0] * (N + 1)
+    for i in range(1, N):
+        prev = A[i-1]
+        curr = A[i]
+        if prev > curr:
+            # 2^h * curr >= prev
+            diff = prev.bit_length() - curr.bit_length()
+            if (curr << diff) >= prev:
+                h[i+1] = diff
+            else:
+                h[i+1] = diff + 1
+        else:
+            # 2^h * curr >= prev, with h <= 0
+            diff = curr.bit_length() - prev.bit_length()
+            if (curr >> diff) >= prev:
+                h[i+1] = -diff
+            else:
+                h[i+1] = -diff + 1
+                
+    # Prefix sums of h
+    S = array.array('i', [0] * (N + 1))
+    for i in range(1, N + 1):
+        S[i] = S[i-1] + h[i]
+        
+    # Prefix sums of S
+    PS = array.array('q', [0] * (N + 1))
+    for i in range(1, N + 1):
+        PS[i] = PS[i-1] + S[i]
+        
+    # next_smaller[i]: first j > i s.t. S[j] < S[i]
+    next_smaller = [N + 1] * (N + 1)
+    stack = []
+    for i in range(1, N + 1):
+        Si = S[i]
+        while stack and S[stack[-1]] > Si:
+            next_smaller[stack.pop()] = i
+        stack.append(i)
+        
+    # Binary lifting tables
+    K = 18
+    up = [array.array('i', [N + 1] * (N + 2)) for _ in range(K)]
+    sum_up = [array.array('q', [0] * (N + 2)) for _ in range(K)]
+    
+    up0 = up[0]
+    sum_up0 = sum_up[0]
+    for i in range(1, N + 1):
+        nj = next_smaller[i]
+        up0[i] = nj
+        sum_up0[i] = (nj - i) * S[i]
+        
+    for k in range(1, K):
+        up_prev = up[k-1]
+        sum_up_prev = sum_up[k-1]
+        up_curr = up[k]
+        sum_up_curr = sum_up[k]
+        for i in range(1, N + 1):
+            mid = up_prev[i]
+            if mid <= N:
+                up_curr[i] = up_prev[mid]
+                sum_up_curr[i] = sum_up_prev[i] + sum_up_prev[mid]
+            else:
+                up_curr[i] = N + 1
+                sum_up_curr[i] = sum_up_prev[i]
+                
+    # Process queries
+    query_data = data[N+2:]
+    results = []
+    # Pre-load references to tables for faster access
+    ups = up
+    sum_ups = sum_up
+    
+    for i in range(0, 2 * Q, 2):
+        l = int(query_data[i])
+        r = int(query_data[i+1])
+        
+        # ans = sum(S[k] for k in [l, r]) - sum(min_range(l, k) for k in [l, r])
+        ans = PS[r] - PS[l-1]
+        
+        curr = l
+        for k in range(17, -1, -1):
+            uk = ups[k]
+            if uk[curr] <= r:
+                ans -= sum_ups[k][curr]
+                curr = uk[curr]
+        # For the remaining part of the range, the minimum is S[curr]
+        ans -= (r - curr + 1) * S[curr]
+        
+        results.append(str(ans))
+        
+    sys.stdout.write('\n'.join(results) + '\n')
+
+if __name__ == '__main__':
+    solve()
+</CODE>
+
+<STATE_UPDATE>
+- Current Approach: Greedy with Binary Lifting
+- Status: Finished
+- Next Objective: None
+</STATE_UPDATE>

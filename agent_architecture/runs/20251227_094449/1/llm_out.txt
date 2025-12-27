@@ -1,0 +1,109 @@
+<THOUGHTS>
+*   The problem asks to find the maximum sum $A[i] + A[j]$ such that $i < j$, $|i - j| \ge D$, and $A[i] + A[j] \le K$.
+    *   The constraints $i < j$ and $|i - j| \ge D$ combined mean $j - i \ge D$ (since $i < j$, $j - i$ is positive). This simplifies to $i \le j - D$.
+    *   If $D=0$, the condition is simply $i < j$, which means $i \le j-1$.
+    *   Therefore, the condition on $i$ is $i \le j - \max(1, D)$. Let $gap = \max(1, D)$.
+    *   For each $j$ from $gap$ to $N-1$, we need to find the maximum $A[i]$ such that $0 \le i \le j - gap$ and $A[i] \le K - A[j]$.
+    *   We can maintain the set of available $A[i]$ values in a data structure that supports:
+        1.  Adding a value $A[j - gap]$.
+        2.  Querying the maximum value $\le K - A[j]$.
+    *   Since we only add elements and need to query the maximum in a range of values, coordinate compression combined with a Fenwick Tree (Binary Indexed Tree) for prefix maximums is a suitable approach.
+    *   The time complexity will be $O(N \log N)$ for sorting (coordinate compression) and $O(N \log N)$ for BIT operations. The space complexity will be $O(N)$.
+
+    *Steps:*
+    1.  Pre-calculate unique values in $A$ and sort them for coordinate compression.
+    2.  Implement a BIT that stores the maximum value seen in a prefix of the sorted unique values.
+    3.  Iterate $j$ from $gap = \max(1, D)$ to $N-1$.
+    4.  In each step, add $A[j - gap]$ to the BIT.
+    5.  Query the BIT for the maximum value $A[i] \le K - A[j]$ and update the overall maximum sum.
+    6.  Return the maximum sum or -1 if no valid pair is found.
+</THOUGHTS>
+
+<PLAN>
+1. Define the `solve` function that takes $N, A, K, D$ as input.
+2. Determine the `gap` as `max(1, D)`.
+3. Perform coordinate compression on all values in $A$.
+4. Initialize the BIT with a very small value.
+5. Loop through $j$ from `gap` to $N-1$:
+    a. Update the BIT with $A[j - gap]$.
+    b. Calculate the target value $K - A[j]$.
+    c. Use `bisect_right` to find the highest possible index in the sorted unique values.
+    d. Query the BIT for the maximum value in that prefix.
+    e. Update the maximum sum found so far.
+6. Test with the example provided and other edge cases.
+</PLAN>
+
+<CODE>
+import sys
+from bisect import bisect_right
+
+def solve(N, A, K, D):
+    if N < 2:
+        return -1
+    
+    gap = max(1, D)
+    if gap >= N:
+        return -1
+    
+    # Coordinate compression
+    sorted_unique = sorted(list(set(A)))
+    val_to_idx = {val: i + 1 for i, val in enumerate(sorted_unique)}
+    m = len(sorted_unique)
+    
+    # Binary Indexed Tree for prefix maximum
+    # Initialized with a very small value
+    bit = [-float('inf')] * (m + 1)
+    
+    def update(idx, val):
+        while idx <= m:
+            if val > bit[idx]:
+                bit[idx] = val
+            idx += idx & (-idx)
+            
+    def query(idx):
+        res = -float('inf')
+        while idx > 0:
+            if bit[idx] > res:
+                res = bit[idx]
+            idx -= idx & (-idx)
+        return res
+
+    max_sum = -float('inf')
+    
+    for j in range(gap, N):
+        # Add A[j - gap] to the BIT
+        val_to_add = A[j - gap]
+        update(val_to_idx[val_to_add], val_to_add)
+        
+        # Search for max A[i] such that A[i] <= K - A[j]
+        target = K - A[j]
+        # Find index of the largest value <= target
+        idx = bisect_right(sorted_unique, target)
+        
+        if idx > 0:
+            best_Ai = query(idx)
+            if best_Ai != -float('inf'):
+                current_sum = best_Ai + A[j]
+                if current_sum > max_sum:
+                    max_sum = current_sum
+                    
+    return int(max_sum) if max_sum != -float('inf') else -1
+
+# Verification with example
+A_ex = [5, 1, 3, 4, 2]
+K_ex = 6
+D_ex = 2
+N_ex = len(A_ex)
+print(f"Example result: {solve(N_ex, A_ex, K_ex, D_ex)}")
+
+# Additional test cases
+print(f"Test D=0: {solve(5, [5, 1, 3, 4, 2], 6, 0)}") # Should be 5 (1+4 or 3+2 or 1+2 etc. Max 5)
+print(f"Test all neg: {solve(3, [-10, -5, -2], -10, 1)}") # -5 + -10 = -15 <= -10. Max -7? No, -10+-5=-15, -10+-2=-12, -5+-2=-7. Max -7.
+print(f"Test impossible: {solve(3, [10, 10, 10], 5, 1)}") # -1
+</CODE>
+
+<STATE_UPDATE>
+- Current Approach: Coordinate Compression + BIT (Fenwick Tree) for prefix maximum
+- Status: Completed initial implementation and local verification
+- Next Objective: Finalize solution and ensure it passes all constraints
+</STATE_UPDATE>

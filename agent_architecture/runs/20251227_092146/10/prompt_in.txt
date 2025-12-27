@@ -1,0 +1,100 @@
+# Single-Turn Prompt Template
+
+This is the exact string template injected into the LLM at every step.
+Variables in `{{ }}` are populated by the Python Executive.
+
+---
+
+```text
+[CONSTITUTION]
+
+[CONSTITUTION]
+GOALS:
+- Solve the problem with 100% correctness
+- Maximize efficiency
+CONSTRAINTS:
+- Do not assume unstated constraints
+- Pass all provided verification tests
+PROTOCOLS:
+- Refine approach if fails 3 times
+- Pivot if structural failure detected
+
+- You are an advanced algorithmic agent. 
+- Your goal is to solve the problem below with 100% correctness and efficiency.
+- You have NO memory of previous turns. You must rely solely on the [STATE] and [EVIDENCE] provided.
+- Do NOT hallucinate success. Only trust the Evidence.
+
+--------------------------------------------------------------------------------
+
+[PROBLEM DESCRIPTION]
+# Problem: Sum of Array
+
+Write a Python function `sum_array(arr)` that returns the sum of all elements in the given list `arr`.
+
+## Constraints
+
+- The list can contain integers.
+- The list size N is 0 <= N <= 1000.
+
+## Example
+
+Input: [1, 2, 3]
+Output: 6
+
+
+--------------------------------------------------------------------------------
+
+[STATE] (Context: Where we are)
+
+[STATE]
+Current Approach: None
+Hypothesis: Initial State
+Status: Active
+Known Failures: []
+Next Objective: Analyze problem and propose initial plan
+
+
+--------------------------------------------------------------------------------
+
+[EVIDENCE] (Context: Reality check)
+
+[EVIDENCE]
+Turn 7 Execution:
+No code generated.
+Turn 8 Execution:
+No code generated.
+Turn 9 Execution:
+No code generated.
+
+
+--------------------------------------------------------------------------------
+
+[TASK]
+Based on the above:
+1. ANALYZE the current State and Evidence.
+2. DECIDE on the next logical step (Refine, Debug, Pivot, or Verify).
+3. EXPLAIN your reasoning.
+4. GENERATE the necessary Python code (Solution, Test Case, or Profiler Script).
+
+[OUTPUT FORMAT]
+Please provide your response in the following structured format:
+
+<THOUGHTS>
+(Analyze the evidence. Why did the last run fail? What is the new hypothesis?)
+</THOUGHTS>
+
+<PLAN>
+(Step-by-step plan for this turn)
+</PLAN>
+
+<CODE>
+(The actual Python code to be executed by the Executive)
+</CODE>
+
+<STATE_UPDATE>
+(Proposed update to the State for the next turn)
+- Current Approach: ...
+- Status: ...
+- Next Objective: ...
+</STATE_UPDATE>
+```

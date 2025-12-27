@@ -1,0 +1,155 @@
+<THOUGHTS>
+*   The problem asks for the minimum operations to make a given subarray non-decreasing by multiplying elements by 2.
+    *   Minimum operations $f(l, r)$ can be calculated as $\sum_{i=l}^r c_i$, where $c_l = 0$ and $c_i = \max(0, c_{i-1} + h_i)$ for $i > l$, with $h_i = \lceil \log_2(A_{i-1}/A_i) \rceil$.
+    *   This is equivalent to $c_i = PS_i - \min_{l \le j \le i} PS_j$, where $PS_i$ is the prefix sum of $h_i$.
+    *   Total sum: $f(l, r) = \sum_{i=l}^r PS_i - \sum_{i=l}^r \min_{l \le j \le i} PS_j$.
+    *   The term $G(l, r) = \sum_{i=l}^r \min_{l \le j \le i} PS_j$ can be computed using a step function structure where the values change at $nxt[i] = \text{first } j > i \text{ such that } PS_j < PS_i$.
+    *   This structure forms a tree where each node $i$ has a parent $nxt[i]$.
+    *   $G(l, r)$ is the sum of segments on the path from $l$ to the root, restricted to the range $[l, r]$.
+    *   Offline processing of queries using a DFS on the tree with a monotonic path stack and binary search allows answering each query in $O(\log N)$.
+    *   Overall complexity: $O(N + Q \log N)$, which fits within the time limits if implemented efficiently in Python.
+    *   The bit-manipulation for calculating $h_i$ is optimized to $O(1)$ per element using `bit_length()`.
+    *   Iterative DFS avoids recursion depth issues and is generally faster.
+
+</THOUGHTS>
+
+<PLAN>
+1.  Read $N, Q$ and sequence $A$ using fast I/O.
+2.  Calculate $H_i = \lceil \log_2(A_{i-1}/A_i) \rceil$ for $i=2, \dots, N$ using `bit_length()` and bit shifts.
+3.  Compute prefix sums $PS_i$ of $H_i$ and prefix sums $PPS_i$ of $PS_i$.
+4.  Find $nxt[i]$, the first $j > i$ such that $PS_j < PS_i$, using a monotonic stack.
+5.  Construct the $nxt$ tree where the parent of $i$ is $nxt[i]$.
+6.  Precompute $PathSum[i] = PS_i \cdot (nxt[i] - i) + PathSum[nxt[i]]$ for each node in the tree.
+7.  Store queries at their respective starting indices $l$.
+8.  Perform an iterative DFS on the $nxt$ tree starting from the root $N+1$:
+    *   Maintain the path from the root as an increasing list of negated values `-node` for binary search.
+    *   For each query $(l, r)$ at node $l$:
+        *   Find the highest ancestor $anc \le r$ using binary search on the path.
+        *   $G(l, r) = (PathSum[l] - PathSum[anc]) + PS[anc] \cdot (r - anc + 1)$.
+        *   $f(l, r) = (PPS_r - PPS_{l-1}) - G(l, r)$.
+9.  Print all results.
+</PLAN>
+
+<CODE>
+import sys
+from bisect import bisect_left
+
+# Use a faster way to read input and process queries efficiently
+def solve():
+    # Fast I/O
+    try:
+        input_data = sys.stdin.read().split()
+    except EOFError:
+        return
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    
+    A = [0] * (N + 1)
+    for i in range(1, N + 1):
+        A[i] = int(input_data[i + 1])
+    
+    # Calculate H[i] = ceil(log2(A[i-1]/A[i]))
+    H = [0] * (N + 1)
+    for i in range(2, N + 1):
+        a, b = A[i-1], A[i]
+        if a <= b:
+            # How many times can we double a such that it's still <= b
+            # k is such that a * 2^k <= b, so ceil(log2(a/b)) = -k
+            k = b.bit_length() - a.bit_length()
+            if (a << k) > b:
+                k -= 1
+            H[i] = -k
+        else:
+            # How many times must we double b such that it's >= a
+            # k is such that b * 2^k >= a, so ceil(log2(a/b)) = k
+            k = a.bit_length() - b.bit_length()
+            if (b << k) < a:
+                k += 1
+            H[i] = k
+            
+    PS = [0] * (N + 2)
+    for i in range(1, N + 1):
+        PS[i] = PS[i-1] + H[i]
+    # Small sentinel for nxt calculation
+    PS[N+1] = -2000000000000000000
+    
+    PPS = [0] * (N + 1)
+    for i in range(1, N + 1):
+        PPS[i] = PPS[i-1] + PS[i]
+        
+    nxt = [0] * (N + 1)
+    m_stack = []
+    for i in range(N, 0, -1):
+        val = PS[i]
+        while m_stack and PS[m_stack[-1]] >= val:
+            m_stack.pop()
+        if not m_stack:
+            nxt[i] = N + 1
+        else:
+            nxt[i] = m_stack[-1]
+        m_stack.append(i)
+        
+    adj = [[] for _ in range(N + 2)]
+    for i in range(1, N + 1):
+        adj[nxt[i]].append(i)
+        
+    path_sum = [0] * (N + 2)
+    # nxt[i] > i, so we can compute this from N down to 1
+    for i in range(N, 0, -1):
+        path_sum[i] = PS[i] * (nxt[i] - i) + path_sum[nxt[i]]
+        
+    queries_at = [[] for _ in range(N + 1)]
+    ptr = N + 2
+    for q in range(Q):
+        l_q = int(input_data[ptr])
+        r_q = int(input_data[ptr + 1])
+        queries_at[l_q].append((r_q, q))
+        ptr += 2
+        
+    results = [0] * Q
+    
+    # Iterative DFS to traverse the nxt tree
+    # stack stores (node, next_child_index)
+    stack = [(N + 1, 0)]
+    path_asc = [-(N + 1)] # Root (N+1) is at index 0, current node at end
+    
+    while stack:
+        u, c_idx = stack[-1]
+        if c_idx < len(adj[u]):
+            v = adj[u][c_idx]
+            stack[-1] = (u, c_idx + 1)
+            stack.append((v, 0))
+            path_asc.append(-v)
+            
+            # Binary search for queries starting at node v
+            if queries_at[v]:
+                for r_val, q_idx in queries_at[v]:
+                    # Find highest ancestor anc such that anc <= r_val
+                    # path_asc is increasing: [-(N+1), ..., -v]
+                    # Since r_val < N+1, -r_val will be > -(N+1)
+                    # anc_idx will be at least 1.
+                    anc_idx = bisect_left(path_asc, -r_val)
+                    anc = -path_asc[anc_idx]
+                    
+                    # G(v, r) = sum of step function from v to r
+                    # = (Sum of full segments) + (Partial segment [anc, r])
+                    g_val = (path_sum[v] - path_sum[anc]) + PS[anc] * (r_val - anc + 1)
+                    results[q_idx] = (PPS[r_val] - PPS[v-1]) - g_val
+        else:
+            stack.pop()
+            path_asc.pop()
+            
+    sys.stdout.write('\n'.join(map(str, results)) + '\n')
+
+if __name__ == '__main__':
+    solve()
+</CODE>
+
+<STATE_UPDATE>
+- Current Approach: Offline Tree Traversal with Monotonic Stack
+- Status: Finished
+- Next Objective: None
+</STATE_UPDATE>

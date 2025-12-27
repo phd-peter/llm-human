@@ -1,0 +1,133 @@
+<THOUGHTS>
+The problem asks for the minimum number of operations (multiplying an element by 2) to make a subarray non-decreasing. This can be analyzed by considering the relative growth needed for each element. 
+Let $c_i$ be the number of times we multiply $A_i$ by 2. For the subarray to be non-decreasing, we need $A_i \cdot 2^{c_i} \ge A_{i-1} \cdot 2^{c_{i-1}}$. The minimum such $c_i$ is $\max(0, c_{i-1} + d_i)$, where $d_i$ is the smallest integer such that $A_i \cdot 2^{d_i} \ge A_{i-1}$. 
+The total cost for a subarray $[l, r]$ starting with $c_l=0$ is $\sum_{i=l}^r (S_i - \min_{l \le j \le i} S_j)$, where $S_i$ is the prefix sum of $d_i$.
+This can be computed efficiently using prefix sums of $S_i$ and a technique to compute the sum of prefix minimums of $S$ over a range $[l, r]$. 
+The sum of prefix minimums can be calculated using a monotonic stack to find the next smaller element (forming a tree structure) and then using binary lifting to compute the sum along the path in the tree.
+The time complexity will be $O((N+Q) \log N)$, which fits within the time limit.
+</THOUGHTS>
+
+<PLAN>
+1. Calculate the $d_i$ values for the entire array $A$.
+2. Compute the prefix sums $S_i$ of $d_i$.
+3. Compute the prefix sums of $S_i$ (call it `PrefS`).
+4. Build a "next smaller element" array `nxt` for $S$ using a monotonic stack.
+5. Build a tree where the parent of $i$ is `nxt[i]`.
+6. Compute $P[i]$, the sum of $S_j \cdot (nxt[j] - j)$ from $i$ to the root.
+7. Precompute a binary lifting table `up` for the tree.
+8. For each query $(l, r)$, find the highest ancestor $i_m$ of $l$ such that $i_m \le r$.
+9. Use $P$, $i_m$, and `PrefS` to calculate the result for each query.
+10. Print the answers.
+</PLAN>
+
+<CODE>
+import sys
+
+# Increase recursion depth for safety
+sys.setrecursionlimit(300000)
+
+def solve():
+    # Fast I/O
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    
+    N = int(input_data[0])
+    Q = int(input_data[1])
+    A = [int(x) for x in input_data[2:2+N]]
+    query_data = input_data[2+N:]
+    
+    # d[i] is the smallest d such that A[i]*2^d >= A[i-1]
+    # d[0] is 0 as it's the start of any potential subarray
+    d = [0] * N
+    for i in range(1, N):
+        prev = A[i-1]
+        curr = A[i]
+        if prev <= curr:
+            # Smallest d s.t. curr * 2^d >= prev, where d <= 0
+            # d = -floor(log2(curr/prev))
+            d[i] = -((curr // prev).bit_length() - 1)
+        else:
+            # Smallest d s.t. curr * 2^d >= prev, where d > 0
+            # d = ceil(log2(ceil(prev/curr)))
+            # ceil(prev/curr) = (prev + curr - 1) // curr
+            d[i] = ((prev + curr - 1) // curr - 1).bit_length()
+    
+    # S[i] = sum(d[1...i]), with S[0] = 0
+    S = [0] * N
+    for i in range(1, N):
+        S[i] = S[i-1] + d[i]
+        
+    # PrefS[i] = sum(S[0...i-1])
+    PrefS = [0] * (N + 1)
+    for i in range(N):
+        PrefS[i+1] = PrefS[i] + S[i]
+        
+    # nxt[i] is the first j > i such that S[j] < S[i]
+    # We use N as the dummy index for "no such j"
+    nxt = [N] * N
+    stack = []
+    for i in range(N):
+        while stack and S[stack[-1]] > S[i]:
+            nxt[stack.pop()] = i
+        stack.append(i)
+        
+    # P[i] calculation: sum of (nxt[j] - j) * S[j] from i to dummy N
+    P = [0] * (N + 1)
+    for i in range(N - 1, -1, -1):
+        P[i] = (nxt[i] - i) * S[i] + P[nxt[i]]
+        
+    # Binary lifting table for nxt pointers
+    LOGN = 18
+    up = [None] * LOGN
+    up[0] = nxt + [N]
+    for k in range(1, LOGN):
+        up_prev = up[k-1]
+        # List comprehension is faster in Python
+        up[k] = [up_prev[up_prev[i]] for i in range(N + 1)]
+            
+    # Process queries
+    results = []
+    for i in range(0, 2 * Q, 2):
+        l = int(query_data[i]) - 1
+        r = int(query_data[i+1]) - 1
+        
+        # Find i_m: the highest ancestor of l such that i_m <= r
+        curr = l
+        for k in range(LOGN - 1, -1, -1):
+            if up[k][curr] <= r:
+                curr = up[k][curr]
+        i_m = curr
+        
+        # g(l, r) is the sum of prefix minimums of S[l...r]
+        # g(l, r) = sum_{k=i_1}^{i_m} (min(nxt[i_k], r+1) - i_k) * S[i_k]
+        # This is (P[l] - P[nxt[i_m]]) adjusted for the fact that nxt[i_m] might exceed r+1
+        next_im = nxt[i_m]
+        g_val = (P[l] - P[next_im]) - (next_im - r - 1) * S[i_m]
+        
+        # Total cost is sum_{i=l}^r (S[i] - min_{l<=j<=i} S[j])
+        ans = (PrefS[r+1] - PrefS[l]) - g_val
+        results.append(str(ans))
+        
+    # Join results with newline for output
+    sys.stdout.write('\n'.join(results) + '\n')
+
+if __name__ == '__main__':
+    solve()
+</CODE>
+
+<STDIN>
+10 5
+5 2 7 3 2 9 6 3 3 5
+3 9
+1 10
+1 8
+2 4
+8 9
+</STDIN>
+
+<STATE_UPDATE>
+- Current Approach: Binary Lifting on next-smaller-element tree
+- Status: Finished
+- Next Objective: None
+</STATE_UPDATE>

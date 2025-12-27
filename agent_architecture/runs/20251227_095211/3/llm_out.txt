@@ -1,0 +1,133 @@
+<THOUGHTS>
+The problem asks for the minimum number of operations (doubling an element) to make a given range $[l, r]$ of a sequence $A$ non-decreasing. Let $k_i$ be the number of doublings for $A_i$. The condition $A_i \cdot 2^{k_i} \ge A_{i-1} \cdot 2^{k_{i-1}}$ must hold. To minimize the total operations, we start with $k_l = 0$ and then for each $i \in [l+1, r]$, $k_i = \max(0, k_{i-1} + d_i)$, where $d_i$ is the smallest integer such that $A_i \cdot 2^{d_i} \ge A_{i-1}$.
+
+The $d_i$ values can be computed as $d_i = \lceil \log_2(A_{i-1}/A_i) \rceil$. We can precompute $d_i$ for all $i \in [2, N]$. Let $S_i$ be the prefix sum of $d_j$. Then $k_j$ can be expressed in terms of $S_j$ as long as $k$ doesn't reset to 0. A reset happens at $j$ if $k_{j-1} + d_j \le 0$. This is equivalent to finding the first $j > i$ such that $S_j \le S_i$. This structure allows us to use a monotonic stack to find the "next reset" index $nxt[i]$ and a tree structure where $i \to nxt[i]$. Using binary lifting on this tree, we can efficiently calculate the total sum of $k_i$ for any query $[l, r]$ in $O(\log N)$ time.
+
+The complexity will be $O((N+Q) \log N)$ for precomputation and queries, and $O(N \log (\max A_i))$ for $d_i$. With $N, Q = 250,000$, this should pass within the 5-second time limit in Python if implemented efficiently using `array.array` for memory and performance.
+</THOUGHTS>
+
+<PLAN>
+1.  Read input $N, Q$ and sequence $A$.
+2.  Compute $d_i = \lceil \log_2(A_{i-1}/A_i) \rceil$ for all $i = 2 \dots N$. Use `bit_length()` for efficiency.
+3.  Compute prefix sums $S_i$ of $d_i$ and prefix sums of $S_i$ as `sumS_i`.
+4.  Find $nxt[i]$, the first index $j > i$ such that $S_j \le S_i$, using a monotonic stack.
+5.  Construct a tree with nodes $1 \dots N+1$ and edges $i \to nxt[i]$. Node $N+1$ is a dummy root.
+6.  Precompute binary lifting table `up[LOGN][N+2]` and `prefT[i]`, where `prefT[i]` is the sum of $T_k$ values along the path from node $i$ to the root, and $T_i = \sum_{j=i}^{nxt[i]-1} (S_j - S_i)$.
+7.  For each query $(l, r)$, find the last ancestor $curr$ of $l$ such that $curr \le r$ using binary lifting.
+8.  Calculate the total operations as `(prefT[l] - prefT[curr]) + (sumS[r] - sumS[curr-1]) - (r - curr + 1) * S[curr]`.
+9.  Print the results.
+</PLAN>
+
+<CODE>
+import sys
+import array
+
+def solve():
+    # Use sys.stdin.read().split() for relatively fast input reading
+    input_data = sys.stdin.read().split()
+    if not input_data:
+        return
+    it = iter(input_data)
+    
+    try:
+        N = int(next(it))
+        Q = int(next(it))
+    except StopIteration:
+        return
+        
+    # d[i] is the smallest integer k such that A[i-1] * 2^k >= A[i-2]
+    # d is computed for i from 2 up to N.
+    d = array.array('b', [0] * (N + 1))
+    
+    try:
+        prev_A = int(next(it))
+        for i in range(2, N + 1):
+            curr_A = int(next(it))
+            if curr_A >= prev_A:
+                # Find largest k >= 0 s.t. curr_A // 2^k >= prev_A
+                # Which is equivalent to d_i = -k
+                d[i] = -((curr_A // prev_A).bit_length() - 1)
+            else:
+                # Find smallest k > 0 s.t. curr_A * 2^k >= prev_A
+                d[i] = ((prev_A - 1) // curr_A).bit_length()
+            prev_A = curr_A
+    except StopIteration:
+        pass
+            
+    # S[i] is the prefix sum of d. Note d[1] is 0.
+    S = array.array('q', [0] * (N + 1))
+    for i in range(2, N + 1):
+        S[i] = S[i-1] + d[i]
+        
+    # sumS[i] is the prefix sum of S.
+    sumS = array.array('q', [0] * (N + 1))
+    for i in range(1, N + 1):
+        sumS[i] = sumS[i-1] + S[i]
+        
+    # nxt[i] is the first j > i such that S[j] <= S[i].
+    # This represents the next time the multiplier k_j resets to 0.
+    nxt = array.array('I', [N + 1] * (N + 2))
+    stack = []
+    for i in range(1, N + 1):
+        si = S[i]
+        while stack and S[stack[-1]] >= si:
+            nxt[stack.pop()] = i
+        stack.append(i)
+    # The dummy node N+1 acts as the root of the reset structure.
+    nxt[N+1] = N+1
+        
+    # T[i] is the sum of (S[j] - S[i]) from j=i up to nxt[i]-1.
+    T = array.array('q', [0] * (N + 2))
+    for i in range(1, N + 1):
+        nj = nxt[i]
+        T[i] = (sumS[nj-1] - sumS[i-1]) - (nj - i) * S[i]
+        
+    # LOGN is enough for binary lifting (2^18 > 250,000)
+    LOGN = 18
+    up = [array.array('I', [N + 1] * (N + 2)) for _ in range(LOGN)]
+    up0 = up[0]
+    for i in range(1, N + 2):
+        up0[i] = nxt[i]
+        
+    for j in range(1, LOGN):
+        up_prev = up[j-1]
+        up_curr = up[j]
+        for i in range(1, N + 2):
+            up_curr[i] = up_prev[up_prev[i]]
+            
+    # prefT[i] is the sum of T values from node i up to the dummy root.
+    prefT = array.array('q', [0] * (N + 2))
+    for i in range(N, 0, -1):
+        prefT[i] = T[i] + prefT[nxt[i]]
+        
+    results = []
+    for _ in range(Q):
+        try:
+            l = int(next(it))
+            r = int(next(it))
+        except StopIteration:
+            break
+        
+        # Binary lifting to find the largest ancestor curr of l such that curr <= r.
+        # This is the last reset point within the query range.
+        curr = l
+        for j in range(LOGN - 1, -1, -1):
+            if up[j][curr] <= r:
+                curr = up[j][curr]
+        
+        # ans = (sum of full T segments from l up to curr) + (final partial segment from curr to r)
+        ans = (prefT[l] - prefT[curr])
+        ans += (sumS[r] - sumS[curr-1]) - (r - curr + 1) * S[curr]
+        results.append(str(ans))
+        
+    sys.stdout.write('\n'.join(results) + '\n')
+
+if __name__ == '__main__':
+    solve()
+</CODE>
+
+<STATE_UPDATE>
+- Current Approach: Precomputing doubling factors and reset points using prefix sums and monotonic stacks, then querying using binary lifting on a forest of reset points.
+- Status: Finished
+- Next Objective: None
+</STATE_UPDATE>
