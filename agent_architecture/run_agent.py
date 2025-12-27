@@ -2,15 +2,16 @@ from agent_engine.executive import AgentExecutive
 from agent_engine.layers import Constitution
 import os
 
-def load_problem():
-    if not os.path.exists("PROBLEM.md"):
-        print("Error: PROBLEM.md not found. Please create one.")
+def load_problem(file_name):
+    if not os.path.exists(file_name):
+        print(f"Error: {file_name} not found. Please create one.")
         exit(1)
-    with open("PROBLEM.md", "r") as f:
+    with open(file_name, "r") as f:
         return f.read()
 
 def main():
-    problem_text = load_problem()
+    promblem_file_name = "PROBLEM_4675.md"
+    problem_text = load_problem(promblem_file_name)
     
     # Default Constitution (this could also be loaded from a file)
     constitution = Constitution(

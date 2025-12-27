@@ -1,0 +1,210 @@
+# Single-Turn Prompt Template
+
+This is the exact string template injected into the LLM at every step.
+Variables in `{{ }}` are populated by the Python Executive.
+
+---
+
+```text
+[CONSTITUTION]
+
+[CONSTITUTION]
+GOALS:
+- Solve the problem with 100% correctness
+- Maximize efficiency
+CONSTRAINTS:
+- Do not assume unstated constraints
+- Pass all provided verification tests
+PROTOCOLS:
+- Refine approach if fails 3 times
+- Pivot if structural failure detected
+
+- You are an advanced algorithmic agent. 
+- Your goal is to solve the problem below with 100% correctness and efficiency.
+- You have NO memory of previous turns. You must rely solely on the [STATE] and [EVIDENCE] provided.
+- Do NOT hallucinate success. Only trust the Evidence.
+
+[IMPORTANT – EXECUTION CONTRACT]
+- The content inside <CODE>...</CODE> will be executed directly by a Python interpreter.
+- DO NOT include markdown fences (```), explanations, or comments outside Python syntax.
+- The <CODE> block MUST contain ONLY valid, executable Python code.
+- Any text outside <CODE> will NOT be executed.
+
+
+--------------------------------------------------------------------------------
+
+[PROBLEM DESCRIPTION]
+## XOR 최대
+
+### 실행조건
+
+ 실행 시간 제한2초
+ 메모리 제한1,024MiB
+
+### 문제
+
+어떤 문자열에서 연속한 위치에 있는 1개 이상의 문자를 선택해 순서를 유지한 채로 나열해서 얻을 수 있는 문자열을 그 문자열의 **부분문자열**이라 한다. 예를 들어, 001 001 는 X=1 001‾1 X = 1\underline{001}1 의 부분문자열이지만, Y=10101 Y = 10101 의 부분문자열은 아니다.
+
+음이 아닌 두 정수 A,B A, B 의 **배타적 논리합**A⊕B A \oplus B 는 다음과 같이 정의된다.
+
+* 이진법으로 생각했을 때, A A 의 2 k 2^k 의 자릿수와 B B 의 2 k 2^k 의 자릿수가 서로 다르면 A⊕B A \oplus B 의 2 k 2^k 의 자릿수가 1 1 이고, 같으면 A⊕B A \oplus B 의 2 k 2^k 의 자릿수가 0 0 이다. (단, k≥0 k \ge 0)
+* 예를 들어 12⊕10 12 \oplus 10 은 12=110 0(2),10=101 0(2)12 = 1100_{(2)}, 10 = 1010_{(2)}이므로 110 0(2)⊕101 0(2)=011 0(2)=6 1100_{(2)} \oplus 1010_{(2)} = 0110_{(2)} = 6 이다.
+
+0 0 과 1 1 로만 구성된 길이가 N N 인 문자열 S S 가 주어진다.
+
+당신은 S S 의 부분문자열 s 1,s 2 s_1, s_2 를 선택해서 만들 수 있는 g(s 1,s 2)g(s_1, s_2)의 최댓값을 계산해야 한다. g(s 1,s 2)g(s_1, s_2)는 다음과 같이 정의되는 함수이다:
+
+* S S 의 부분문자열 s s 에 대해, f(s)f(s)의 값은 s s 를 이진법으로 해석했을 때의 값이다. 예를 들어, 만약 s=11010 s = 11010 이면 f(s)=26 f(s) = 26 이다.
+* g(s 1,s 2)g(s_1, s_2)는 f(s 1)f(s_1)과 f(s 2)f(s_2)의 배타적 논리합이다.
+
+이때 s 1 s_1 과 s 2 s_2 가 서로 다를 필요는 없다. 즉, s 1 s_1 과 s 2 s_2 는 S S 에서 일부가 겹쳐도 되고, 완전히 같은 문자열이어도 된다.
+
+0 0 과 1 1 로만 구성된 문자열 S S 가 주어지면, 가능한 g(s 1,s 2)g(s_1, s_2)의 최댓값을 구하는 프로그램을 작성하라.
+
+제약 조건
+-----
+
+* 주어지는 모든 수는 정수이다.
+* 1≤T≤100 1 \le T \le 100
+* 2≤N≤1 0 7 2 \le N \le 10^7
+* 모든 테스트 케이스에서 N N 의 합 ≤1 0 7\le 10^7
+* S S 는 0 0 과 1 1 로만 이루어진 길이가 N N 인 문자열이다.
+
+부분문제
+----
+
+* (17점) N≤30 N \le 30, 모든 테스트 케이스에서 N N 의 합 ≤300\le 300
+* (20점) N≤200 N \le 200, 모든 테스트 케이스에서 N N 의 합 ≤2000\le 2000
+* (13점) N≤3 000 N \le 3\,000, 모든 테스트 케이스에서 N N 의 합 ≤30 000\le 30\,000
+* (12점) N≤2×1 0 5 N \le 2 \times 10^5, 모든 테스트 케이스에서 N N 의 합 ≤2×1 0 6\le 2 \times 10^6
+* (38점) 추가 제약 조건 없음.
+
+입력 형식
+-----
+
+첫 번째 줄에 테스트 케이스의 개수 T T 가 주어진다.
+
+각 테스트 케이스마다, 첫 번째 줄에 문자열의 길이 N N, 두 번째 줄에 0 0 과 1 1 로만 구성된 길이가 N N 인 문자열 S S 가 주어진다.
+
+출력 형식
+-----
+
+각 테스트 케이스마다 가능한 g(s 1,s 2)g(s_1, s_2)의 최댓값을 이진법으로 한 줄에 하나씩 출력한다. 단, 정답 앞에 필요 없는 0 0 은 출력하지 않는다.
+
+예제
+--
+
+### 예제 1
+
+#### 입력
+
+```
+4
+3
+010
+5
+10101
+5
+00100
+5
+11111
+```
+
+#### 출력
+
+```
+11
+11111
+110
+11110
+```
+
+첫 번째 테스트 케이스에서 s 1=010 s_1 = 010, s 2=01 s_2 = 01 로 설정하면 g(s 1,s 2)=1 1(2)g(s_1, s_2) = 11_{(2)}을 만들 수 있다. 1 1(2)11_{(2)} 대신 01 1(2)011_{(2)}으로도 표현할 수 있지만, 정답 앞에 필요 없는 0 0 을 출력하면 안 되므로 011 011 이 아닌 11 11 을 출력해야 한다.
+
+네 번째 테스트 케이스에서 s 1=11111 s_1 = 11111, s 2=1 s_2 = 1 로 설정하면 g(s 1,s 2)=1111 0(2)g(s_1, s_2) = 11110_{(2)}을 만들 수 있다.
+
+### 예제 2
+
+#### 입력
+
+```
+4
+2
+00
+2
+01
+2
+10
+2
+11
+```
+
+#### 출력
+
+```
+0
+1
+11
+10
+```
+
+
+--------------------------------------------------------------------------------
+
+[STATE] (Context: Where we are)
+Current Turn: 1 / 10
+
+[STATE]
+Current Approach: None
+Hypothesis: Initial State
+Status: Active
+Known Failures: []
+Next Objective: Analyze problem and propose initial plan
+
+
+--------------------------------------------------------------------------------
+
+[EVIDENCE] (Context: Reality check)
+No evidence yet.
+
+--------------------------------------------------------------------------------
+
+[TASK]
+Based on the above:
+1. ANALYZE the current State and Evidence.
+2. DECIDE on the next logical step (Refine, Debug, Pivot, or Verify).
+3. EXPLAIN your reasoning.
+4. GENERATE the necessary Python code (Solution, Test Case, or Profiler Script).
+
+[OUTPUT FORMAT]
+Please provide your response in the following structured format:
+
+<THOUGHTS>
+(Analyze the evidence. Why did the last run fail? What is the new hypothesis?)
+</THOUGHTS>
+
+<PLAN>
+(Step-by-step plan for this turn)
+</PLAN>
+
+<CODE>
+(The actual Python code to be executed by the Executive)
+<CODE>
+(The actual Python code to be executed by the Executive)
+</CODE>
+
+<STDIN>
+(Optional: Testing input to be piped into the code's sys.stdin.read(). 
+Use this to provide sample inputs for the problem.)
+</STDIN>
+
+<STATE_UPDATE>
+(Proposed update to the State for the next turn)
+- Current Approach: ...
+- Next Objective: ...
+</STATE_UPDATE>
+
+[NOTE]
+- You do NOT verify the execution result here. You only write the code.
+- Determining "Finished" status happens in the next phase.
+```

@@ -1,0 +1,166 @@
+# Single-Turn Prompt Template
+
+This is the exact string template injected into the LLM at every step.
+Variables in `{{ }}` are populated by the Python Executive.
+
+---
+
+```text
+[CONSTITUTION]
+
+[CONSTITUTION]
+GOALS:
+- Solve the problem with 100% correctness
+- Maximize efficiency
+CONSTRAINTS:
+- Do not assume unstated constraints
+- Pass all provided verification tests
+PROTOCOLS:
+- Refine approach if fails 3 times
+- Pivot if structural failure detected
+
+- You are an advanced algorithmic agent. 
+- Your goal is to solve the problem below with 100% correctness and efficiency.
+- You have NO memory of previous turns. You must rely solely on the [STATE] and [EVIDENCE] provided.
+- Do NOT hallucinate success. Only trust the Evidence.
+
+[IMPORTANT – EXECUTION CONTRACT]
+- The content inside <CODE>...</CODE> will be executed directly by a Python interpreter.
+- DO NOT include markdown fences (```), explanations, or comments outside Python syntax.
+- The <CODE> block MUST contain ONLY valid, executable Python code.
+- Any text outside <CODE> will NOT be executed.
+
+
+--------------------------------------------------------------------------------
+
+[PROBLEM DESCRIPTION]
+***Problem Statement***
+
+A line in the plane is called *sunny* if it is not parallel to any of the $x$-axis, the $y$-axis, and the line $x+y=0$.
+
+Let $n\ge3$ be a given integer. Determine all nonnegative integers $k$ such that there exist $n$ distinct lines in the plane satisfying both the following:
+
+* for all positive integers $a$ and $b$ with $a+b\le n+1$, the point $(a,b)$ is on at least one of the lines; and
+* exactly $k$ of the lines are sunny.
+
+
+--------------------------------------------------------------------------------
+
+[STATE] (Context: Where we are)
+Current Turn: 2 / 10
+
+[STATE]
+Current Approach: None
+Hypothesis: Initial State
+Status: Debugging
+Known Failures: ['Turn 1 Execution Error']
+Next Objective: Analyze problem and propose initial plan
+
+
+--------------------------------------------------------------------------------
+
+[EVIDENCE] (Context: Reality check)
+
+[EVIDENCE]
+Turn 1 Logic:
+[THOUGHTS]
+To solve this problem, I'll first write a Python script to explore small values of $n$ (specifically $n=3, 4, 5, 6$) and find the possible values of $k$ for each $n$. 
+
+The set of points is $S_n = \{(a, b) \in \mathbb{Z}^2 : a, b \ge 1, a+b \le n+1\}$.
+The lines are categorized as:
+- Sunny: Not parallel to $x=0, y=0$, or $x+y=0$.
+- Non-sunny: Parallel to $x=0$ ($x=c$), $y=0$ ($y=c$), or $x+y=0$ ($x+y=c$).
+
+For each $n$, I need to find all possible $k \in \{0, 1, \dots, n\}$ such that there exist $n$ distinct lines (with $k$ sunny ones) that cover all points in $S_n$.
+
+I will:
+1. Generate all possible lines that can cover at least two points in $S_n$.
+2. Also consider lines that cover only one point (both sunny and non-sunny types).
+3. For each $k \in \{0, \dots, n\}$, use a backtracking search or a solver to see if $S_n$ can be covered by $n$ lines with $k$ of them being sunny.
+4. Note that if a set of $m$ lines covers $S_n$ and contains $k'$ sunny lines, then we can form a set of $n$ lines with $k$ sunny lines for any $k$ such that $k' \le k \le k' + (n-m)$, provided we can find enough distinct sunny and non-sunny lines to add. Since there are infinitely many sunny lines and many non-sunny lines, this should be possible.
+5. Thus, the problem reduces to: for each $k$, can we cover $S_n$ using $n$ lines with exactly $k$ sunny?
+
+Wait, a better way: for each possible *subset* of lines that covers $S_n$, if the subset has size $m \le n$ and $k_{sunny}$ sunny lines, it contributes the range $[k_{sunny}, k_{sunny} + n - m]$ to the possible values of $k$. (Wait, this is true only if we can add $n-m$ lines without violating the "distinct" requirement. Since there are infinitely many sunny lines and at least $3n$ non-sunny lines that cover at least one point, this is almost always possible.)
+
+Let's refine the script to find the possible $(m, k_{sunny})$ pairs for each $n$.
+[PLAN]
+1. Write a script to:
+    - Define $S_n = \{(a, b) \in \mathbb{Z}^2 : a, b \ge 1, a+b \le n+1\}$.
+    - Find all possible lines that pass through at least one point in $S_n$.
+    - Classify lines as sunny or non-sunny.
+    - For each $n \in \{3, 4, 5, 6\}$, find all sets of $m \le n$ lines that cover $S_n$.
+    - For each such set, calculate the number of sunny lines $k_{sunny}$.
+    - The possible $k$ values for $n$ will be the union of $[k_{sunny}, k_{sunny} + n - m]$ over all such sets.
+    - Since $n$ lines are required, we must also ensure that we don't exceed $n$ lines.
+    - Actually, a simpler way: just check for each $k \in \{0, \dots, n\}$ if there exists a set of $n$ lines with $k$ sunny lines that cover $S_n$. This can be done with a backtracking search.
+2. Analyze the results to find a pattern for $k$.
+3. Formulate a general solution.
+
+[EXECUTION LOG]
+
+[STDERR]
+Traceback (most recent call last):
+  File "/var/folders/8w/l19v9pf51291mtt5nchvp7w00000gn/T/tmpxpfg9u6q.py", line 208, in <module>
+    solve()
+  File "/var/folders/8w/l19v9pf51291mtt5nchvp7w00000gn/T/tmpxpfg9u6q.py", line 87, in solve
+    for p1, p2 in itertools.combinations(points, 2):
+                  ^^^^^^^^^
+UnboundLocalError: cannot access local variable 'itertools' where it is not associated with a value
+
+Process exited with return code 1
+
+[EVALUATION]
+The previous execution failed due to an `UnboundLocalError` caused by a shadowing of the `itertools` module within the `solve` function. Specifically, `itertools.combinations` was called before a local `import itertools` statement, which Python's scoping rules flags as an error. Additionally, the approach of iterating over all combinations of lines is likely too slow for $n \ge 5$ because the number of possible lines (especially sunny ones) is large.
+
+To determine the set of possible $k$ values, I need to:
+1. Fix the import issue by moving all imports to the top level.
+2. Optimize the search. Instead of searching for exactly $n$ lines, I should find the minimum number of lines needed to cover the set of points $S_n = \{(a, b) : a, b \in \mathbb{Z}^+, a+b \le n+1\}$.
+3. If $S_n$ can be covered by $m$ lines, where $s$ are sunny and $m-s$ are non-sunny, and $m \le n$, then any $k$ such that $s \le k \le n - (m-s)$ might be achievable by adding "dummy" lines of the required type.
+4. However, the dummy lines must be distinct from the existing ones and from each other. For sunny lines, this is easy as there are infinitely many. For non-sunny lines, there are only $3(n+1)$ standard ones ($x=c, y=c, x+y=c$ for relevant $c$), but since $n$ is small, we should check availability.
+5. The constraints $a+b \le n+1$ suggest a triangular grid. This is a classic problem related to covering points with lines. The minimum number of lines to cover $S_n$ is $n$ (using all $x=c$ or all $y=c$ or all $x+y=c$).
+6. If the minimum number of lines to cover the set is $n$, then the only way to get a configuration is to use exactly $n$ lines that form a "minimal" cover.
+
+I will rewrite the script to find all possible values of $k$ for small $n$ more robustly.
+
+
+--------------------------------------------------------------------------------
+
+[TASK]
+Based on the above:
+1. ANALYZE the current State and Evidence.
+2. DECIDE on the next logical step (Refine, Debug, Pivot, or Verify).
+3. EXPLAIN your reasoning.
+4. GENERATE the necessary Python code (Solution, Test Case, or Profiler Script).
+
+[OUTPUT FORMAT]
+Please provide your response in the following structured format:
+
+<THOUGHTS>
+(Analyze the evidence. Why did the last run fail? What is the new hypothesis?)
+</THOUGHTS>
+
+<PLAN>
+(Step-by-step plan for this turn)
+</PLAN>
+
+<CODE>
+(The actual Python code to be executed by the Executive)
+<CODE>
+(The actual Python code to be executed by the Executive)
+</CODE>
+
+<STDIN>
+(Optional: Testing input to be piped into the code's sys.stdin.read(). 
+Use this to provide sample inputs for the problem.)
+</STDIN>
+
+<STATE_UPDATE>
+(Proposed update to the State for the next turn)
+- Current Approach: ...
+- Next Objective: ...
+</STATE_UPDATE>
+
+[NOTE]
+- You do NOT verify the execution result here. You only write the code.
+- Determining "Finished" status happens in the next phase.
+```

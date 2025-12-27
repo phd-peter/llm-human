@@ -31,11 +31,11 @@ class AgentExecutive:
             self.turn_count += 1
             print(f"\n--- Turn {self.turn_count} ---")
             
-            # 1. Construct Prompt
+            # 1. Construct Prompt (Generation Phase)
             prompt = self._construct_prompt()
             
-            # 2. Call LLM
-            print("Invoking LLM...")
+            # 2. Call LLM (Generation Phase)
+            print("Invoking LLM (Generation)...")
             llm_response_text = self.client.call_chat(prompt)
             print("LLM Response received.")
 
@@ -55,34 +55,43 @@ class AgentExecutive:
                 execution_log = "No code generated."
                 execution_success = True # purely reasoning step?
 
-            # 5. Update Evidence
+            # 5. Evaluation Phase (Second LLM Call)
+            print("Invoking LLM (Evaluation)...")
+            eval_prompt = self._construct_evaluation_prompt(code, execution_log)
+            eval_response_text = self.client.call_chat(eval_prompt)
+            eval_parsed = self._parse_response(eval_response_text)
+            print("Evaluation received.")
+            
+            # 6. Update Evidence
             thoughts = parsed.get("THOUGHTS", "")
             plan = parsed.get("PLAN", "")
-            self.evidence.add_log(f"Turn {self.turn_count} Logic:\n[THOUGHTS]\n{thoughts}\n[PLAN]\n{plan}\n\n[EXECUTION LOG]\n{execution_log}")
+            analysis = eval_parsed.get("ANALYSIS", "")
             
-            # 6. Update State
-            state_update_text = parsed.get("STATE_UPDATE", "")
+            self.evidence.add_log(f"Turn {self.turn_count} Logic:\n[THOUGHTS]\n{thoughts}\n[PLAN]\n{plan}\n\n[EXECUTION LOG]\n{execution_log}\n\n[EVALUATION]\n{analysis}")
+            
+            # 7. Update State (Based on Evaluation)
+            state_update_text = eval_parsed.get("STATE_UPDATE", "")
             self._update_state(state_update_text, execution_success, execution_log)
 
-            # 7. Save Asset
+            # 8. Save Asset
             self.store.save_turn(
                 self.turn_count,
                 self.state,
                 self.evidence,
                 prompt,
-                llm_response_text
+                llm_response_text + "\n\n[EVALUATION PHASE]\n" + eval_response_text
             )
 
-            # 8. Check Termination
-            if "[FINALIZE]" in parsed.get("PLAN", "") or self.state.status == "Finished":
-                print("Agent requested termination.")
+            # 9. Check Termination
+            # We trust the second LLM's status decision fully now
+            if self.state.status == "Finished":
+                print("Agent requested termination (Status: Finished).")
                 break
         
         print("Agent Finished.")
 
     def _construct_prompt(self) -> str:
         # Load template (assuming it's in the parent directory or relative)
-        # For simplicity, I'll inline a minimal version if file not found, but trying to read relative
         try:
             with open("PROMPT_TEMPLATE.md", "r") as f:
                 template = f.read()
@@ -97,9 +106,23 @@ class AgentExecutive:
                        .replace("{{LAYER_C_CONTENT}}", self.evidence.select_relevant(self.state))\
                        .replace("{{TURN_INFO}}", f"Current Turn: {self.turn_count} / {self.max_turns}")
 
+    def _construct_evaluation_prompt(self, code: str, execution_log: str) -> str:
+        try:
+            with open("EVALUATION_PROMPT.md", "r") as f:
+                template = f.read()
+        except FileNotFoundError:
+            with open("../EVALUATION_PROMPT.md", "r") as f:
+                template = f.read()
+                
+        return template.replace("{{LAYER_A_CONTENT}}", self.constitution.render())\
+                       .replace("{{PROBLEM_TEXT}}", self.problem_text)\
+                       .replace("{{LAYER_B_CONTENT}}", self.state.render())\
+                       .replace("{{CODE}}", code)\
+                       .replace("{{EXECUTION_LOG}}", execution_log)
+
     def _parse_response(self, text: str) -> Dict[str, str]:
         # Simple regex parser for <TAG>content</TAG>
-        tags = ["THOUGHTS", "PLAN", "CODE", "STATE_UPDATE", "STDIN"]
+        tags = ["THOUGHTS", "PLAN", "CODE", "STATE_UPDATE", "STDIN", "ANALYSIS"]
         parsed = {}
         for tag in tags:
             pattern = f"<{tag}>(.*?)</{tag}>"
